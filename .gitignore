@@ -1,0 +1,33 @@
+# 환경변수
+.env
+.env.local
+.env.production
+.env.development
+
+# 의존성
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 빌드 결과물
+.next/
+dist/
+build/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.DS_Store
+Thumbs.db
+
+# Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# 로그
+*.log
