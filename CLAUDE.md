@@ -63,7 +63,13 @@ reading-path/
 ## 개발 현황 (Phase 추적)
 
 - [x] Phase 0 — 레포, 폴더 구조, 문서화, Git 세팅
-- [ ] Phase 1 — 기반 세팅 (Next.js + FastAPI + Supabase + 배포 연결)
+- [x] Phase 1 — 기반 세팅 (Next.js + FastAPI + Supabase + 배포 연결)
+  - [x] Next.js 16 + TypeScript + Tailwind + NextAuth v4
+  - [x] FastAPI + SQLAlchemy ORM + 전체 API 구조
+  - [x] supabase/schema.sql 작성 (Supabase SQL Editor에서 실행 필요)
+  - [ ] Supabase 프로젝트 생성 + schema.sql 적용 (수동)
+  - [ ] Vercel 배포 연결 (수동)
+  - [ ] Railway 배포 연결 (수동)
 - [ ] Phase 2 — 인증 (Google OAuth + JWT 미들웨어)
 - [ ] Phase 3 — 책 검색 + 등록 (카카오 API + user_books CRUD)
 - [ ] Phase 4 — AI 분석 파이프라인 (Gemini + 독서 지도 저장)
