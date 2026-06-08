@@ -19,9 +19,10 @@
 ## 레포지토리 정보
 
 - **GitHub:** https://github.com/OriginKim/reading-path.git
-- **로컬 경로:** `C:\Users\USER\Desktop\reading-path`
-- **프론트엔드 배포:** Vercel
-- **백엔드 배포:** Railway
+- **프론트엔드 배포:** https://reading-path.vercel.app (Vercel)
+- **백엔드 배포:** https://reading-path-production.up.railway.app (Railway)
+- **API 문서:** https://reading-path-production.up.railway.app/docs
+- **Supabase 대시보드:** https://supabase.com/dashboard/project/zbnpoijwspljrzcsrxzp
 
 ---
 
@@ -37,8 +38,8 @@ reading-path/
 │   ├── ai-analysis.md         ← AI 분석 로직, 프롬프트, 파싱
 │   ├── security.md            ← 보안 설계, RLS, Rate Limit
 │   └── git-convention.md      ← 브랜치 전략, 커밋 규칙, PR 규칙
-├── frontend/                  ← Next.js 14 (아직 미생성)
-├── backend/                   ← FastAPI (아직 미생성)
+├── frontend/                  ← Next.js 14
+├── backend/                   ← FastAPI
 └── .github/
     ├── ISSUE_TEMPLATE/        ← feat / fix / refactor / chore
     └── PULL_REQUEST_TEMPLATE.md
@@ -66,16 +67,17 @@ reading-path/
 - [x] Phase 1 — 기반 세팅 (Next.js + FastAPI + Supabase + 배포 연결)
   - [x] Next.js 16 + TypeScript + Tailwind + NextAuth v4
   - [x] FastAPI + SQLAlchemy ORM + 전체 API 구조
-  - [x] supabase/schema.sql 작성 (Supabase SQL Editor에서 실행 필요)
-  - [ ] Supabase 프로젝트 생성 + schema.sql 적용 (수동)
-  - [ ] Vercel 배포 연결 (수동)
-  - [ ] Railway 배포 연결 (수동)
-- [ ] Phase 2 — 인증 (Google OAuth + JWT 미들웨어)
-- [ ] Phase 3 — 책 검색 + 등록 (카카오 API + user_books CRUD)
-- [ ] Phase 4 — AI 분석 파이프라인 (Gemini + 독서 지도 저장)
-- [ ] Phase 5 — 독서 지도 결과 화면
-- [ ] Phase 6 — 내 서재 완성 + UI 다듬기
-- [ ] Phase 7 — 소프트 오픈 + 안정화 (2025년 9월)
+  - [x] supabase/schema.sql 작성 + 적용 (테이블 5개 생성 완료)
+  - [x] Supabase 프로젝트 생성 (zbnpoijwspljrzcsrxzp)
+  - [x] Vercel 배포 연결 (reading-path.vercel.app)
+  - [x] Railway 배포 연결 (reading-path-production.up.railway.app)
+  - [x] Google OAuth 앱 등록 (reading-path / Google Cloud Console)
+- [ ] Phase 2 — 인증 (Google OAuth + JWT 미들웨어) → 이슈 #6
+- [ ] Phase 3 — 책 검색 + 등록 (카카오 API + user_books CRUD) → 이슈 #7
+- [ ] Phase 4 — AI 분석 파이프라인 (Gemini + 독서 지도 저장) → 이슈 #8
+- [ ] Phase 5 — 독서 지도 결과 화면 → 이슈 #9
+- [ ] Phase 6 — 내 서재 완성 + UI 다듬기 → 이슈 #10
+- [ ] Phase 7 — 소프트 오픈 + 안정화 → 이슈 #11
 
 ---
 
@@ -96,8 +98,6 @@ reading-path/
 
 ## 로컬 실행 명령어
 
-> 세팅 완료 후 이 섹션을 업데이트하세요.
-
 ```bash
 # 프론트엔드
 cd frontend
@@ -107,7 +107,8 @@ npm run dev       # http://localhost:3000
 # 백엔드
 cd backend
 python -m venv .venv
-.venv\Scripts\activate   # Windows
+source .venv/bin/activate   # macOS/Linux
+# .venv\Scripts\activate    # Windows
 pip install -r requirements.txt
 uvicorn app.main:app --reload  # http://localhost:8000
 ```
@@ -117,26 +118,34 @@ uvicorn app.main:app --reload  # http://localhost:8000
 ## 환경변수 목록
 
 > 실제 값은 `.env.local` (프론트) / `.env` (백엔드)에 관리. 코드에 절대 포함 금지.
+> 배포 환경 값은 Vercel / Railway 대시보드에 등록되어 있음.
 
 **프론트엔드 (`frontend/.env.local`)**
 ```
-NEXTAUTH_URL=
-NEXTAUTH_SECRET=
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-NEXT_PUBLIC_API_URL=
+NEXTAUTH_URL=https://reading-path.vercel.app
+NEXTAUTH_SECRET=                              # Vercel에 등록됨
+GOOGLE_CLIENT_ID=                             # Google Cloud Console → reading-path 앱
+GOOGLE_CLIENT_SECRET=                         # Google Cloud Console → reading-path 앱
+NEXT_PUBLIC_API_URL=https://reading-path-production.up.railway.app
 ```
 
 **백엔드 (`backend/.env`)**
 ```
-DATABASE_URL=
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-KAKAO_REST_API_KEY=
-GOOGLE_BOOKS_API_KEY=
-GEMINI_API_KEY=
-JWT_SECRET=
-ALLOWED_ORIGINS=
+DATABASE_URL=postgresql+asyncpg://postgres:[비밀번호]@db.zbnpoijwspljrzcsrxzp.supabase.co:5432/postgres
+SUPABASE_URL=https://zbnpoijwspljrzcsrxzp.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=                    # Supabase → API Keys → service_role
+KAKAO_REST_API_KEY=                           # Phase 3에서 추가 (developers.kakao.com)
+GOOGLE_BOOKS_API_KEY=                         # Phase 3에서 추가 (Google Cloud Console)
+GEMINI_API_KEY=                               # Phase 4에서 추가 (aistudio.google.com)
+JWT_SECRET=                                   # Railway에 등록됨
+ALLOWED_ORIGINS=https://reading-path.vercel.app
+ENV=development
+```
+
+**Google OAuth 리디렉션 URI (Google Cloud Console에 등록됨)**
+```
+http://localhost:3000/api/auth/callback/google
+https://reading-path.vercel.app/api/auth/callback/google
 ```
 
 ---
