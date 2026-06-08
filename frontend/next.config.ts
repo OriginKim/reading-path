@@ -11,7 +11,12 @@ const securityHeaders = [
   },
 ];
 
+const BACKEND_URL = "https://reading-path-production.up.railway.app";
+
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? BACKEND_URL,
+  },
   async headers() {
     return [
       {
