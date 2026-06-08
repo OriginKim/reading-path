@@ -11,14 +11,34 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account && profile) {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/google`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              provider_id: account.providerAccountId,
+              email: (profile as { email: string }).email,
+              name: profile.name ?? null,
+              profile_image: (profile as { picture?: string }).picture ?? null,
+            }),
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          token.accessToken = data.access_token;
+          token.userId = data.user.id;
+        }
+
         token.providerId = account.providerAccountId;
-        token.profileImage = (profile as { picture?: string }).picture;
       }
       return token;
     },
     async session({ session, token }) {
+      session.accessToken = token.accessToken as string | undefined;
       if (session.user) {
-        (session.user as { providerId?: string }).providerId = token.providerId as string;
+        session.user.providerId = token.providerId as string | undefined;
       }
       return session;
     },
