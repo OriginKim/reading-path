@@ -35,10 +35,12 @@ app.include_router(v1_router, prefix="/api/v1")
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={"error": {"code": "INTERNAL_ERROR", "message": f"{type(exc).__name__}: {str(exc)[:300]}"}},
-    )
+    if settings.ENV == "production":
+        return JSONResponse(
+            status_code=500,
+            content={"error": {"code": "INTERNAL_ERROR", "message": "서버 오류가 발생했습니다."}},
+        )
+    raise exc
 
 
 @app.get("/health")
