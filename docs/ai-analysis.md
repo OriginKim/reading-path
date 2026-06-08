@@ -1,8 +1,18 @@
 # AI 분석 로직
 
-> AI 모델: Gemini 1.5 Flash
+> AI 모델: Gemini 2.5 Flash
 > 입력: 구조화된 JSON (자유 텍스트 아님)
 > 출력: JSON 형식 강제
+
+---
+
+## 할루시네이션 방지 원칙
+
+**AI가 책 제목을 직접 생성하게 하지 않는다.**
+
+- `path` (독서 흐름): 사용자가 실제로 읽은 책만 사용 → 할루시네이션 불가
+- `nextPath` (다음 경로): **책 제목 제안 금지** → "다음 탐색 방향" 텍스트로 대체
+- AI의 역할은 분석과 해석이지, 책을 창작하는 것이 아님
 
 ---
 
@@ -15,7 +25,7 @@ READ 책 목록 조회
 입력 구조화 (프롬프트 인젝션 방어)
     │
     ▼
-시스템 프롬프트 + 구조화 JSON → Gemini API
+시스템 프롬프트 + 구조화 JSON → Gemini API (asyncio.to_thread)
     │
     ▼
 JSON 파싱 + 필수 필드 검증
@@ -34,15 +44,15 @@ JSON 파싱 + 필수 필드 검증
 
 ```python
 def build_prompt(books: list[dict]) -> str:
-    book_list = []
-    for i, book in enumerate(books, 1):
-        book_list.append({
+    book_list = [
+        {
             "index": i,
-            "title": book["title"][:100],       # 길이 제한
-            "authors": book["authors"][:3],      # 저자 최대 3명
-            "description": book["description"][:300] if book.get("description") else ""
-        })
-
+            "title": b["title"][:100],
+            "authors": b["authors"][:3],
+            "description": b.get("description", "")[:300],
+        }
+        for i, b in enumerate(books, 1)
+    ]
     return SYSTEM_PROMPT + json.dumps({"books": book_list}, ensure_ascii=False)
 ```
 
@@ -59,19 +69,29 @@ def build_prompt(books: list[dict]) -> str:
 - 책과 책 사이의 공통 주제, 사상, 감정, 철학적 흐름을 연결하세요
 - 단순 장르 분류가 아닌, 사용자의 지적 관심사 흐름을 해석하세요
 - 추천이 아닌 연결과 해석에 집중하세요
-- 다음 경로는 현재 흐름에서 자연스럽게 이어지는 책 2~3권을 제안하세요
+- nextDirection은 책 제목을 절대 제시하지 말고, 탐색할 방향이나 테마만 서술하세요
 
 응답 형식:
 {
   "readerType": "string",
   "themes": ["string"],
   "keywords": ["string"],
-  "currentPosition": "string",
+  "currentPosition": "string (100자 이내)",
   "summary": "string",
   "path": [{"title": "string", "connection": "string"}],
-  "nextPath": [{"title": "string", "reason": "string"}]
+  "nextDirection": "string (다음 탐색 방향 서술, 책 제목 없이)"
 }
 ```
+
+---
+
+## AI 응답 스키마 변경 이력
+
+| 필드 | 변경 전 | 변경 후 | 이유 |
+|------|---------|---------|------|
+| `nextPath` | 책 제목 2~3권 배열 | 제거 | 할루시네이션 |
+| `nextDirection` | 없음 | 방향성 텍스트 string | 할루시네이션 없는 대안 |
+| `currentPosition` | VARCHAR(255) | truncation [:255] 처리 | Gemini 2.5가 길게 생성 |
 
 ---
 
@@ -81,23 +101,25 @@ def build_prompt(books: list[dict]) -> str:
 async def analyze_with_ai(books: list) -> dict:
     for attempt in range(2):  # 최대 2회 시도
         try:
-            response = await gemini_client.generate(prompt=build_prompt(books))
-            raw_text = response.text.strip()
+            prompt = build_prompt(books)
+            response = await asyncio.to_thread(model.generate_content, prompt)
+            raw = response.text.strip()
 
-            # 코드블록 제거 (모델이 ```json 으로 감쌀 경우 대비)
-            if raw_text.startswith("```"):
-                raw_text = raw_text.split("```")[1]
-                if raw_text.startswith("json"):
-                    raw_text = raw_text[4:]
+            # 코드블록 제거
+            if raw.startswith("```"):
+                parts = raw.split("```")
+                raw = parts[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
 
-            result = json.loads(raw_text)
-            validate_ai_response(result)  # 필수 필드 검증
+            result = json.loads(raw)
+            validate_ai_response(result)
             return result
-
-        except (json.JSONDecodeError, ValidationError) as e:
-            if attempt == 1:
-                raise AIParseError("AI 응답 파싱 실패")
+        except Exception as e:
+            last_error = e
             continue
+
+    raise RuntimeError(f"AI 응답 파싱 실패: {last_error}")
 ```
 
 ---
@@ -105,21 +127,10 @@ async def analyze_with_ai(books: list) -> dict:
 ## 응답 품질 검증
 
 ```python
-def validate_ai_response(data: dict) -> None:
-    required_fields = [
-        "readerType", "themes", "keywords",
-        "currentPosition", "summary", "path", "nextPath"
-    ]
-    for field in required_fields:
-        if field not in data:
-            raise ValidationError(f"필수 필드 누락: {field}")
-
-    if len(data["themes"]) == 0:
-        raise ValidationError("themes 비어있음")
-    if len(data["path"]) == 0:
-        raise ValidationError("path 비어있음")
-    if len(data["nextPath"]) == 0:
-        raise ValidationError("nextPath 비어있음")
+REQUIRED_FIELDS = [
+    "readerType", "themes", "keywords",
+    "currentPosition", "summary", "path", "nextDirection"
+]
 ```
 
 ---
@@ -128,20 +139,17 @@ def validate_ai_response(data: dict) -> None:
 
 ```json
 {
-  "readerType": "자아 탐구형 독자",
-  "themes": ["실존", "자유", "정체성", "고독"],
-  "keywords": ["자기 발견", "내면 탐구", "부조리", "세계와의 거리감"],
-  "currentPosition": "실존주의 입문 단계",
-  "summary": "사용자는 자아와 세계의 관계를 탐구하는 방향으로 독서를 이어가고 있습니다.",
+  "readerType": "존재의 본질과 변화를 탐색하는 사색가",
+  "themes": ["인간 본성", "생존과 저항", "상실과 성장", "기억과 회한"],
+  "keywords": ["야생성", "억압", "성장통", "향수", "회복"],
+  "currentPosition": "극한 환경 속 인간 내면 탐구",
+  "summary": "독자는 원초적 생존 본능과 가혹한 환경 속 인간 본성을 탐색하는 것으로 여정을 시작해, 이것이 한 개인의 성장과 상실로 이어지는 흐름을 따라왔습니다.",
   "path": [
-    { "title": "데미안", "connection": "자아 발견의 출발점" },
-    { "title": "싯다르타", "connection": "내면 수행과 자기 이해의 확장" },
-    { "title": "이방인", "connection": "세계와의 거리감과 부조리 인식" }
+    { "title": "말뚝들", "connection": "사회적 억압 속 생존과 저항의 시작점" },
+    { "title": "소도둑 성장기", "connection": "거친 환경이 한 개인의 성장에 미치는 영향" },
+    { "title": "두고 온 여름", "connection": "상실이 남긴 기억과 내면 성찰" }
   ],
-  "nextPath": [
-    { "title": "시지프 신화", "reason": "부조리를 더 직접적으로 다루는 자연스러운 다음 경로" },
-    { "title": "존재와 무", "reason": "실존주의의 철학적 기반을 깊게 확장할 수 있는 경로" }
-  ]
+  "nextDirection": "상실 이후 인간이 의미를 재구성하는 과정, 기억과 트라우마가 현재의 자아에 미치는 심리적 영향을 다룬 문학으로 흐름이 이어질 수 있습니다."
 }
 ```
 
@@ -149,17 +157,15 @@ def validate_ai_response(data: dict) -> None:
 
 ## DB 저장 매핑
 
-AI 응답 필드 → reading_maps 테이블
-
-| AI 응답 필드 | DB 컬럼 |
-|-------------|---------|
-| `readerType` | `reader_type` |
-| `themes` | `themes` (TEXT[]) |
-| `keywords` | `keywords` (TEXT[]) |
-| `currentPosition` | `current_position` |
-| `summary` | `summary` |
-| `path` | `path_json` (JSONB) |
-| `nextPath` | `next_path_json` (JSONB) |
+| AI 응답 필드 | DB 컬럼 | 비고 |
+|-------------|---------|------|
+| `readerType` | `reader_type` | [:100] truncation |
+| `themes` | `themes` (TEXT[]) | |
+| `keywords` | `keywords` (TEXT[]) | |
+| `currentPosition` | `current_position` | [:255] truncation |
+| `summary` | `summary` | TEXT, 길이 무제한 |
+| `path` | `path_json` (JSONB) | |
+| `nextDirection` | `next_path_json` (JSONB) | 형식 변경됨 |
 
 ---
 
@@ -167,5 +173,5 @@ AI 응답 필드 → reading_maps 테이블
 
 - 사용자당 **하루 5회** 분석 요청 허용
 - 초과 시 `429 RATE_LIMIT_EXCEEDED` 반환
-- 구현: `slowapi` 라이브러리 사용
+- 구현: `slowapi` 라이브러리
 - 이유: Gemini API 무료 티어 보호 + 서비스 운영 비용 통제

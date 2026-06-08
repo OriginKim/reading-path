@@ -7,12 +7,20 @@
 
 ## 서비스 한 줄 정의
 
-**사용자가 읽은 책들을 AI로 분석해, 그 독서 여정을 하나의 지도로 시각화해주는 서비스.**
+**사용자가 읽은 책들을 AI로 분석해, 그 독서 여정을 하나의 지도로 시각화하고 공유하게 해주는 서비스.**
 
 - 책 추천 서비스가 아니다
 - 독서 SNS가 아니다
 - 독서 기록 앱이 아니다
 - **"연결"과 "해석"과 "시각화"가 핵심 정체성이다**
+- AI가 책 제목을 생성(할루시네이션)하는 것을 절대 허용하지 않는다
+
+### 타깃 사용자
+독서를 **자기계발 / 정체성 표현 수단**으로 쓰는 20-30대.
+"나는 이런 독자야"를 공유하고 싶은 사람.
+
+### 핵심 가치
+> "나는 어떤 독자인가" — 스스로 몰랐던 독서 여정의 흐름을 AI가 해석해준다.
 
 ---
 
@@ -56,7 +64,7 @@ reading-path/
 | 인증 | NextAuth.js v5 (Auth.js) — Google OAuth |
 | DB | PostgreSQL via Supabase (Connection Pooler 사용) |
 | 책 검색 | 카카오 책 검색 API (메인) + Google Books API (폴백) |
-| AI 분석 | Gemini 1.5 Flash |
+| AI 분석 | Gemini 2.5 Flash |
 | 배포 | Vercel (프론트) + Railway (백엔드) |
 
 ---
@@ -81,9 +89,19 @@ reading-path/
   - [x] /books/search 페이지 — 검색 결과 + READ/READING/WISHLIST 등록
   - [x] /library 페이지 — 상태 필터 탭, 상태 변경, 삭제
   - [x] AppNav 공통 네비게이션 바
-- [ ] Phase 4 — AI 분석 파이프라인 (Gemini + 독서 지도 저장) → 이슈 #8
-- [ ] Phase 5 — 독서 지도 결과 화면 → 이슈 #9
-- [ ] Phase 6 — 내 서재 완성 + UI 다듬기 → 이슈 #10
+- [x] Phase 4 — AI 분석 파이프라인 (Gemini + 독서 지도 저장) → 이슈 #8
+  - [x] Gemini 2.5 Flash 연동 (asyncio.to_thread 비동기 처리)
+  - [x] POST /reading-maps/generate (Rate Limit 5회/일)
+  - [x] GET /reading-maps/latest
+  - [x] ReadingMapClient 기본 UI (임시 — Phase 5에서 전면 교체)
+  - [x] UUID 직렬화 오류 수정
+  - [x] 500 에러 시 CORS 헤더 누락 수정
+  - [x] VARCHAR 길이 초과 truncation 처리
+- [ ] Phase 5 — 독서 지도 결과 화면 + 공유 카드 → 이슈 #9
+  - [ ] 전면 UI 리디자인 (다크/라이트 모드, Spotify Wrapped 스타일)
+  - [ ] nextPath 할루시네이션 제거 → "다음 탐색 방향" 텍스트로 교체
+  - [ ] 공유 카드 생성 (이미지 다운로드 or 링크 공유)
+- [ ] Phase 6 — 전체 UI 통일 + 랜딩 페이지 개선 → 이슈 #10
 - [ ] Phase 7 — 소프트 오픈 + 안정화 → 이슈 #11
 
 ---
@@ -100,6 +118,7 @@ reading-path/
 8. `.env`에 있는 값을 코드에 **하드코딩 금지**
 9. SQLAlchemy ORM 사용 — **raw query 금지** (SQL Injection 방어)
 10. 모든 API 응답에서 **스택트레이스 노출 금지** (production)
+11. **AI가 책 제목을 직접 생성하게 하지 않는다** — 할루시네이션 원천 차단
 
 ---
 
@@ -110,12 +129,27 @@ reading-path/
 - NextAuth v4는 Next.js 16과 호환 안 됨 → **NextAuth v5 (Auth.js)** 사용
 - NextAuth v5 API: `auth()` (서버), `useSession()` (클라이언트), Server Action으로 `signIn()`
 - 환경변수: `NEXTAUTH_SECRET` 아닌 `AUTH_SECRET` 사용
+- `npm install next-auth`는 v4 설치됨 → 반드시 `npm install next-auth@5.0.0-beta.31` 명시
 
 ### Supabase DB 연결
 - **직접 연결 URL (`db.xxx.supabase.co:5432`) 사용 금지** — Railway에서 접근 불가
 - **반드시 Connection Pooler URL 사용**: `aws-1-ap-northeast-2.pooler.supabase.com:5432`
 - asyncpg SSL: `connect_args={"ssl": ssl_context}` (ssl.CERT_NONE으로 인증서 검증 비활성화)
 - Supabase 무료 플랜은 비활성 시 자동 일시정지됨 → 주기적으로 접속 필요
+
+### Gemini API
+- `google-generativeai==0.8.x`는 v1beta API 사용 — `gemini-1.5-flash` 모델 없음
+- **현재 사용 모델: `gemini-2.5-flash`** (2026년 6월 기준 사용 가능 확인)
+- 동기 호출 `model.generate_content()`는 async 이벤트 루프 블로킹 → **`asyncio.to_thread()` 필수**
+- AI 응답 필드 `VARCHAR(255)` 초과 가능 → 저장 전 truncation 필요
+
+### CSP (Content Security Policy)
+- 로컬 개발 시 `connect-src`에 `http://localhost:8000` 없으면 API 호출 차단
+- `next.config.ts`에서 `NODE_ENV === 'development'` 분기로 localhost 허용
+
+### 500 에러 + CORS 누락 문제
+- FastAPI `global_exception_handler`에서 `raise exc` 하면 CORS 미들웨어 바깥으로 예외 탈출 → CORS 헤더 누락
+- **반드시 JSONResponse 반환** (development에서도)
 
 ### 환경변수 관리
 - `NEXT_PUBLIC_API_URL`은 Vercel에 없어도 됨 — `auth.ts`와 `api.ts`에 Railway URL 하드코딩된 fallback 있음
@@ -134,8 +168,8 @@ npm run dev       # http://localhost:3000
 # 백엔드
 cd backend
 python -m venv .venv
-source .venv/bin/activate   # macOS/Linux
-# .venv\Scripts\activate    # Windows
+.venv\Scripts\activate      # Windows
+# source .venv/bin/activate  # macOS/Linux
 pip install -r requirements.txt
 uvicorn app.main:app --reload  # http://localhost:8000
 ```
@@ -168,7 +202,7 @@ uvicorn app.main:app --reload  # http://localhost:8000
 | `ALLOWED_ORIGINS` | `https://reading-path.vercel.app` |
 | `KAKAO_REST_API_KEY` | 카카오 개발자센터 |
 | `GOOGLE_BOOKS_API_KEY` | Google Cloud Console |
-| `GEMINI_API_KEY` | aistudio.google.com (Phase 4) |
+| `GEMINI_API_KEY` | aistudio.google.com |
 | `ENV` | `production` |
 
 ### Google OAuth (Google Cloud Console에 등록됨)
@@ -183,7 +217,7 @@ https://reading-path.vercel.app/api/auth/callback/google
 
 ```
 GET /health       → 서버 상태
-GET /health/db    → DB 연결 상태 (문제 시 오류 메시지 반환)
+GET /health/db    → DB 연결 상태
 ```
 
 ---

@@ -1,6 +1,7 @@
 # API 명세
 
-> Base URL: `https://api.readingpath.kr/api/v1`
+> Base URL (production): `https://reading-path-production.up.railway.app/api/v1`
+> Base URL (local): `http://localhost:8000/api/v1`
 > 인증: `Authorization: Bearer {JWT}` (NextAuth 발급 토큰)
 
 ---
@@ -202,14 +203,15 @@ READ 책 기반 AI 분석 → DB 저장 → 결과 반환
     { "title": "데미안", "connection": "자아 발견의 출발점" },
     { "title": "싯다르타", "connection": "내면 수행과 자기 이해의 확장" }
   ],
-  "next_path_json": [
-    { "title": "시지프 신화", "reason": "부조리를 더 직접적으로 다루는 자연스러운 다음 경로" }
-  ],
-  "ai_model": "gemini-1.5-flash",
+  "next_path_json": "상실 이후 인간이 의미를 재구성하는 과정을 탐구하는 방향으로 흐름이 이어질 수 있습니다.",
+  "ai_model": "gemini-2.5-flash",
   "book_count": 3,
   "created_at": "2025-06-01T00:00:00Z"
 }
 ```
+
+> **주의:** `next_path_json`은 책 제목을 포함하지 않는 방향성 텍스트입니다.
+> 할루시네이션 방지를 위해 AI가 책 제목을 생성하는 `nextPath` 형식은 폐기했습니다.
 
 **에러**
 - `422 INSUFFICIENT_BOOKS` — READ 책 3권 미만
