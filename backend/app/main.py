@@ -40,7 +40,11 @@ async def global_exception_handler(request: Request, exc: Exception):
             status_code=500,
             content={"error": {"code": "INTERNAL_ERROR", "message": "서버 오류가 발생했습니다."}},
         )
-    raise exc
+    import traceback
+    return JSONResponse(
+        status_code=500,
+        content={"error": {"code": "INTERNAL_ERROR", "message": str(exc), "detail": traceback.format_exc()}},
+    )
 
 
 @app.get("/health")
