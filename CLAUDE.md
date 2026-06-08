@@ -19,9 +19,9 @@
 ## 레포지토리 정보
 
 - **GitHub:** https://github.com/OriginKim/reading-path.git
-- **프론트엔드 배포:** https://reading-path.vercel.app (Vercel)
-- **백엔드 배포:** https://reading-path-production.up.railway.app (Railway)
-- **API 문서:** https://reading-path-production.up.railway.app/docs
+- **프론트엔드 배포:** https://reading-path.vercel.app (Vercel — develop 브랜치 추적)
+- **백엔드 배포:** https://reading-path-production.up.railway.app (Railway — main 브랜치 추적)
+- **API 문서:** https://reading-path-production.up.railway.app/docs (ENV=production이면 비활성)
 - **Supabase 대시보드:** https://supabase.com/dashboard/project/zbnpoijwspljrzcsrxzp
 
 ---
@@ -38,7 +38,7 @@ reading-path/
 │   ├── ai-analysis.md         ← AI 분석 로직, 프롬프트, 파싱
 │   ├── security.md            ← 보안 설계, RLS, Rate Limit
 │   └── git-convention.md      ← 브랜치 전략, 커밋 규칙, PR 규칙
-├── frontend/                  ← Next.js 14
+├── frontend/                  ← Next.js 16 (Turbopack)
 ├── backend/                   ← FastAPI
 └── .github/
     ├── ISSUE_TEMPLATE/        ← feat / fix / refactor / chore
@@ -51,10 +51,10 @@ reading-path/
 
 | 영역 | 기술 |
 |------|------|
-| 프론트엔드 | Next.js 14 + TypeScript + Tailwind CSS |
+| 프론트엔드 | Next.js 16 + TypeScript + Tailwind CSS |
 | 백엔드 | FastAPI (Python) |
-| 인증 | NextAuth.js (Google OAuth) |
-| DB | PostgreSQL via Supabase |
+| 인증 | NextAuth.js v5 (Auth.js) — Google OAuth |
+| DB | PostgreSQL via Supabase (Connection Pooler 사용) |
 | 책 검색 | 카카오 책 검색 API (메인) + Google Books API (폴백) |
 | AI 분석 | Gemini 1.5 Flash |
 | 배포 | Vercel (프론트) + Railway (백엔드) |
@@ -65,7 +65,7 @@ reading-path/
 
 - [x] Phase 0 — 레포, 폴더 구조, 문서화, Git 세팅
 - [x] Phase 1 — 기반 세팅 (Next.js + FastAPI + Supabase + 배포 연결)
-  - [x] Next.js 16 + TypeScript + Tailwind + NextAuth v4
+  - [x] Next.js 16 + TypeScript + Tailwind + NextAuth v5
   - [x] FastAPI + SQLAlchemy ORM + 전체 API 구조
   - [x] supabase/schema.sql 작성 + 적용 (테이블 5개 생성 완료)
   - [x] Supabase 프로젝트 생성 (zbnpoijwspljrzcsrxzp)
@@ -76,7 +76,11 @@ reading-path/
   - [x] NextAuth v5 (Auth.js) 마이그레이션 (Next.js 16 호환)
   - [x] Google OAuth 로그인 → FastAPI JWT 발급 → session.accessToken 저장
   - [x] 보호 라우트 서버사이드 auth 가드 (/library, /books/search, /reading-map)
-- [ ] Phase 3 — 책 검색 + 등록 (카카오 API + user_books CRUD) → 이슈 #7
+- [x] Phase 3 — 책 검색 + 등록 (카카오 API + user_books CRUD) → 이슈 #7
+  - [x] 카카오 책 검색 + Google Books 폴백 (백엔드 완료)
+  - [x] /books/search 페이지 — 검색 결과 + READ/READING/WISHLIST 등록
+  - [x] /library 페이지 — 상태 필터 탭, 상태 변경, 삭제
+  - [x] AppNav 공통 네비게이션 바
 - [ ] Phase 4 — AI 분석 파이프라인 (Gemini + 독서 지도 저장) → 이슈 #8
 - [ ] Phase 5 — 독서 지도 결과 화면 → 이슈 #9
 - [ ] Phase 6 — 내 서재 완성 + UI 다듬기 → 이슈 #10
@@ -96,6 +100,26 @@ reading-path/
 8. `.env`에 있는 값을 코드에 **하드코딩 금지**
 9. SQLAlchemy ORM 사용 — **raw query 금지** (SQL Injection 방어)
 10. 모든 API 응답에서 **스택트레이스 노출 금지** (production)
+
+---
+
+## 중요 기술 결정 사항 (삽질 기록)
+
+### Next.js 16 주의사항
+- Next.js 16은 기존 Next.js와 다른 부분이 많음 → `frontend/AGENTS.md` 필독
+- NextAuth v4는 Next.js 16과 호환 안 됨 → **NextAuth v5 (Auth.js)** 사용
+- NextAuth v5 API: `auth()` (서버), `useSession()` (클라이언트), Server Action으로 `signIn()`
+- 환경변수: `NEXTAUTH_SECRET` 아닌 `AUTH_SECRET` 사용
+
+### Supabase DB 연결
+- **직접 연결 URL (`db.xxx.supabase.co:5432`) 사용 금지** — Railway에서 접근 불가
+- **반드시 Connection Pooler URL 사용**: `aws-1-ap-northeast-2.pooler.supabase.com:5432`
+- asyncpg SSL: `connect_args={"ssl": ssl_context}` (ssl.CERT_NONE으로 인증서 검증 비활성화)
+- Supabase 무료 플랜은 비활성 시 자동 일시정지됨 → 주기적으로 접속 필요
+
+### 환경변수 관리
+- `NEXT_PUBLIC_API_URL`은 Vercel에 없어도 됨 — `auth.ts`와 `api.ts`에 Railway URL 하드코딩된 fallback 있음
+- Vercel은 클라이언트 번들 빌드 시점에 env를 적용하지만, NextAuth 서버 콜백은 런타임 process.env를 읽으므로 서버사이드 코드에는 별도 fallback 필요
 
 ---
 
@@ -123,32 +147,43 @@ uvicorn app.main:app --reload  # http://localhost:8000
 > 실제 값은 `.env.local` (프론트) / `.env` (백엔드)에 관리. 코드에 절대 포함 금지.
 > 배포 환경 값은 Vercel / Railway 대시보드에 등록되어 있음.
 
-**프론트엔드 (`frontend/.env.local`)**
-```
-NEXTAUTH_URL=https://reading-path.vercel.app
-AUTH_SECRET=                                  # Vercel에 등록됨 (NextAuth v5는 AUTH_SECRET 사용)
-GOOGLE_CLIENT_ID=                             # Google Cloud Console → reading-path 앱
-GOOGLE_CLIENT_SECRET=                         # Google Cloud Console → reading-path 앱
-NEXT_PUBLIC_API_URL=https://reading-path-production.up.railway.app
-```
+### Vercel (프론트엔드) — 3개
 
-**백엔드 (`backend/.env`)**
-```
-DATABASE_URL=postgresql+asyncpg://postgres:[비밀번호]@db.zbnpoijwspljrzcsrxzp.supabase.co:5432/postgres
-SUPABASE_URL=https://zbnpoijwspljrzcsrxzp.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=                    # Supabase → API Keys → service_role
-KAKAO_REST_API_KEY=                           # Phase 3에서 추가 (developers.kakao.com)
-GOOGLE_BOOKS_API_KEY=                         # Phase 3에서 추가 (Google Cloud Console)
-GEMINI_API_KEY=                               # Phase 4에서 추가 (aistudio.google.com)
-JWT_SECRET=                                   # Railway에 등록됨
-ALLOWED_ORIGINS=https://reading-path.vercel.app
-ENV=development
-```
+| 변수 | 설명 |
+|------|------|
+| `AUTH_SECRET` | NextAuth v5 시크릿 (NEXTAUTH_SECRET 아님) |
+| `GOOGLE_CLIENT_ID` | Google Cloud Console → reading-path 앱 |
+| `GOOGLE_CLIENT_SECRET` | Google Cloud Console → reading-path 앱 |
 
-**Google OAuth 리디렉션 URI (Google Cloud Console에 등록됨)**
+> `NEXT_PUBLIC_API_URL`은 코드에 fallback 있어서 Vercel에 없어도 됨
+
+### Railway (백엔드) — 9개
+
+| 변수 | 설명 |
+|------|------|
+| `DATABASE_URL` | `postgresql+asyncpg://postgres.zbnpoijwspljrzcsrxzp:[비밀번호]@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres` |
+| `SUPABASE_URL` | `https://zbnpoijwspljrzcsrxzp.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → API Keys → service_role |
+| `JWT_SECRET` | FastAPI JWT 서명 키 |
+| `ALLOWED_ORIGINS` | `https://reading-path.vercel.app` |
+| `KAKAO_REST_API_KEY` | 카카오 개발자센터 |
+| `GOOGLE_BOOKS_API_KEY` | Google Cloud Console |
+| `GEMINI_API_KEY` | aistudio.google.com (Phase 4) |
+| `ENV` | `production` |
+
+### Google OAuth (Google Cloud Console에 등록됨)
 ```
 http://localhost:3000/api/auth/callback/google
 https://reading-path.vercel.app/api/auth/callback/google
+```
+
+---
+
+## 진단 엔드포인트
+
+```
+GET /health       → 서버 상태
+GET /health/db    → DB 연결 상태 (문제 시 오류 메시지 반환)
 ```
 
 ---
