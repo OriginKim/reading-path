@@ -2,7 +2,6 @@ from pydantic import BaseModel, EmailStr
 
 
 class GoogleAuthRequest(BaseModel):
-    code: str
     provider_id: str
     email: EmailStr
     name: str | None = None
