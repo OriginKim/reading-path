@@ -72,7 +72,10 @@ reading-path/
   - [x] Vercel 배포 연결 (reading-path.vercel.app)
   - [x] Railway 배포 연결 (reading-path-production.up.railway.app)
   - [x] Google OAuth 앱 등록 (reading-path / Google Cloud Console)
-- [ ] Phase 2 — 인증 (Google OAuth + JWT 미들웨어) → 이슈 #6
+- [x] Phase 2 — 인증 (Google OAuth + JWT 미들웨어) → 이슈 #6
+  - [x] NextAuth v5 (Auth.js) 마이그레이션 (Next.js 16 호환)
+  - [x] Google OAuth 로그인 → FastAPI JWT 발급 → session.accessToken 저장
+  - [x] 보호 라우트 서버사이드 auth 가드 (/library, /books/search, /reading-map)
 - [ ] Phase 3 — 책 검색 + 등록 (카카오 API + user_books CRUD) → 이슈 #7
 - [ ] Phase 4 — AI 분석 파이프라인 (Gemini + 독서 지도 저장) → 이슈 #8
 - [ ] Phase 5 — 독서 지도 결과 화면 → 이슈 #9
@@ -123,7 +126,7 @@ uvicorn app.main:app --reload  # http://localhost:8000
 **프론트엔드 (`frontend/.env.local`)**
 ```
 NEXTAUTH_URL=https://reading-path.vercel.app
-NEXTAUTH_SECRET=                              # Vercel에 등록됨
+AUTH_SECRET=                                  # Vercel에 등록됨 (NextAuth v5는 AUTH_SECRET 사용)
 GOOGLE_CLIENT_ID=                             # Google Cloud Console → reading-path 앱
 GOOGLE_CLIENT_SECRET=                         # Google Cloud Console → reading-path 앱
 NEXT_PUBLIC_API_URL=https://reading-path-production.up.railway.app
