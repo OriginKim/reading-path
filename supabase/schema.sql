@@ -70,9 +70,9 @@ CREATE TABLE IF NOT EXISTS reading_map_books (
 );
 
 -- 인덱스
-CREATE INDEX IF NOT EXISTS idx_user_books_user_id ON user_books(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_books_status  ON user_books(user_id, status);
-CREATE INDEX IF NOT EXISTS idx_reading_maps_user_id ON reading_maps(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_books_user_id    ON user_books(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_books_status     ON user_books(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_reading_maps_user_id  ON reading_maps(user_id, created_at DESC);
 
 -- RLS 활성화
 ALTER TABLE users        ENABLE ROW LEVEL SECURITY;
@@ -84,4 +84,5 @@ CREATE POLICY "users_self_only"        ON users        USING (id = auth.uid());
 CREATE POLICY "user_books_self_only"   ON user_books   USING (user_id = auth.uid());
 CREATE POLICY "reading_maps_self_only" ON reading_maps USING (user_id = auth.uid());
 
--- books, reading_map_books는 서비스 역할(service_role)로만 접근 → RLS 미적용
+-- books, reading_map_books는 서비스 역할(service_role)로만 접근
+-- 프론트 → FastAPI → Supabase 구조이므로 RLS 미적용 (의도된 설계)
