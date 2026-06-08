@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth, signIn } from "@/auth";
 
 export default async function LandingPage() {
   const session = await auth();
@@ -19,7 +18,6 @@ export default async function LandingPage() {
           당신만의 독서 지도를 만들어드립니다.
         </p>
 
-        {/* 예시 독서 지도 목업 */}
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 mb-10 text-left">
           <p className="text-xs text-gray-400 uppercase tracking-widest mb-4">
             독서 흐름 예시
@@ -41,12 +39,19 @@ export default async function LandingPage() {
           </p>
         </div>
 
-        <Link
-          href="/api/auth/signin"
-          className="inline-flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition-colors"
+        <form
+          action={async () => {
+            "use server";
+            await signIn("google", { redirectTo: "/library" });
+          }}
         >
-          Google로 시작하기
-        </Link>
+          <button
+            type="submit"
+            className="inline-flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition-colors"
+          >
+            Google로 시작하기
+          </button>
+        </form>
       </section>
 
       <footer className="absolute bottom-8 text-sm text-gray-400">
