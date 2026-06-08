@@ -50,16 +50,19 @@ async def generate_reading_map(
 
     ai_result = await analyze_with_ai(books_data)
 
+    reader_type = (ai_result.get("readerType") or "")[:100]
+    current_position = (ai_result.get("currentPosition") or "")[:255]
+
     reading_map = ReadingMap(
         user_id=current_user.id,
-        reader_type=ai_result.get("readerType"),
+        reader_type=reader_type,
         themes=ai_result.get("themes", []),
         keywords=ai_result.get("keywords", []),
-        current_position=ai_result.get("currentPosition"),
+        current_position=current_position,
         summary=ai_result.get("summary"),
         path_json=ai_result.get("path", []),
         next_path_json=ai_result.get("nextPath", []),
-        ai_model="gemini-1.5-flash",
+        ai_model="gemini-2.5-flash",
         book_count=len(rows),
     )
     db.add(reading_map)
