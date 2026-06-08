@@ -7,7 +7,7 @@ const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value:
-      "default-src 'self'; img-src 'self' https: data:; script-src 'self' 'unsafe-eval' 'unsafe-inline';",
+      "default-src 'self'; connect-src 'self' https://reading-path-production.up.railway.app; img-src 'self' https: data:; script-src 'self' 'unsafe-eval' 'unsafe-inline';",
   },
 ];
 
