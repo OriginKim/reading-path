@@ -47,13 +47,15 @@ def validate_ai_response(data: dict) -> None:
 
 
 async def analyze_with_ai(books: list[dict]) -> dict:
+    import asyncio
     genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
 
     last_error: Exception | None = None
     for attempt in range(2):
         try:
-            response = model.generate_content(build_prompt(books))
+            prompt = build_prompt(books)
+            response = await asyncio.to_thread(model.generate_content, prompt)
             raw = response.text.strip()
 
             if raw.startswith("```"):

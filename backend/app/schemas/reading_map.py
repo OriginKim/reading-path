@@ -1,5 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from datetime import datetime
+import uuid
 
 
 class PathItem(BaseModel):
@@ -13,7 +14,7 @@ class NextPathItem(BaseModel):
 
 
 class ReadingMapResponse(BaseModel):
-    id: str
+    id: uuid.UUID
     reader_type: str | None
     themes: list[str]
     keywords: list[str]
