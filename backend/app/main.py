@@ -4,8 +4,10 @@ from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
 
 from app.core.config import settings
+from app.core.database import AsyncSessionLocal
 from app.api.v1.router import router as v1_router
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
@@ -44,3 +46,13 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+@app.get("/health/db")
+async def db_health_check():
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
